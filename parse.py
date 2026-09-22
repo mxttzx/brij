@@ -12,14 +12,14 @@ class TypeNode(Protocol):
         ...
 
 @dataclass
-class TPrimitive[T](TypeNode): 
+class TypePrimitive[T](TypeNode): 
     _type: type[T]
 
     def delegate(self, ctx) -> callable:
         return lambda val: val 
 
 @dataclass
-class TContainer[T](TypeNode): 
+class TypeContainer[T](TypeNode): 
     _type: type[T]
     node: TypeNode
 
@@ -67,7 +67,7 @@ class TypeParser[T]:
        
         if not children:
             if cls._oftype(annotation, (DEFAULT, str, int, bool, bytes, float)):
-                return TPrimitive(annotation)
+                return TypePrimitive(annotation)
 
             return TypeMap(annotation)
         
@@ -77,7 +77,7 @@ class TypeParser[T]:
             if args:
                 return cls.parse(args[0]) 
              
-            return TPrimitive() # TODO: This is likely wrong
+            return TypePrimitive() # TODO: This is likely wrong
 
         if cls._oftype(parent, (_Mapping,)):
             tkey = cls.parse(args[0])
@@ -90,7 +90,7 @@ class TypeParser[T]:
             # TODO: might need to change this
             # I dont want another inspect call here so we will see if it breaks eventually 
             # container = list if inspect.isabstract(parent) else parent
-            return TContainer(parent, node)
+            return TypeContainer(parent, node)
 
         return TypeMap(annotation)
 

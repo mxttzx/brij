@@ -66,8 +66,9 @@ class Mapping[U, T]:
         for k, val in vars(cls).items(): 
             if isinstance(val, Field):
                 val.to = val.to or k
-                cls._field_mappings[k] = val
-         
+                cls._field_mappings[k] = val 
+
+        # Try to remove inspect call here  
         cls.sig = get_signature(cls._target_type.__init__)
 
 class MapperSubject[T]: 
@@ -122,7 +123,7 @@ class MapperSubject[T]:
         
         return self._target_type(**kwargs)
 
-    def map[U](self, arg: U) -> T:
+    def map[U](self, arg: U, /, **ctx) -> T:
         source_type = type(arg) 
          
         mapping = (source_type, self.target_type)
@@ -147,10 +148,11 @@ class MapperSubject[T]:
 
 class Mapper:
     # TODO: Fix this by adding additional user added context
-    def __init__(self, ctx, mode: Fallback.DEFAULT | Fallback.STRICT = Fallback.DEFAULT) -> None:
+    def __init__(self, 
+                 mode: Fallback.DEFAULT | Fallback.STRICT = Fallback.DEFAULT) -> None: 
         self._registry: dict[RegistryKey, Mapping] = {} 
         self._exec: dict[Mapping, RegistryTask] = {} 
-
+        
         self._mode = mode
     
     @property
@@ -234,14 +236,14 @@ class UserMapping(Mapping[User, PublicUser]): ...
 
 
 if __name__ == "__main__": 
-    user = User("Matt", 24, "some_dummy_addr")
+    user = User("Matt", 24, "some_dummy_addr") 
+    comment = "Hello, World!\n" 
 
     mapper = Mapper()
     mapper.add(UserMapping())
     
     public_user_mapper = mapper[PublicUser]
 
-    res = public_user_mapper.map(user) 
-    
-    print(getattr(res, "addr", "Nothing here..."))
-    print(getattr(res, "age", "So empty, looks like something went wrong...")) 
+    res = public_user_mapper.map(user, x=2, c=comment)
+
+
