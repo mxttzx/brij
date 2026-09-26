@@ -71,20 +71,16 @@ class Mapping[U, T]:
         # Try to remove inspect call here  
         cls.sig = get_signature(cls._target_type.__init__)
 
-class MapperSubject[T]: 
+class MapperSubject:
     _ref_stack: ContextVar[set[int] | None] = ContextVar("stack", default=None) 
 
-    def __init__(self, target_type: T, instance: Mapper) -> None: 
-        self._target_type = target_type
+    def __init__[U, T](self, mapping: Mapping[U, T], instance: Mapper) -> None: 
+        self._mapping = mapping 
         self._instance = instance 
     
     @property 
-    def mapper_instance(self) -> Mapper:
-        return self._instance 
-
-    @property 
-    def target_type(self) -> type[T]:
-        return self._target_type 
+    def mapping(self) -> Mapping: 
+        return self._mapping
     
     def _ensure_no_circular_reference(func): 
         def wrapper(self, arg, task, *args, **kwargs):  
@@ -100,7 +96,7 @@ class MapperSubject[T]:
             if _id in visited: 
                 raise CircularReferenceError(
                     f"""Circular mapping detected while mapping 
-                    {type(arg).__name__} to {self.target_type.__name__}""")  
+                    {self._mapping.source_type.__name__} to {self._mapping.target_type.__name__}""")  
 
             visited.add(_id)
             
@@ -116,30 +112,30 @@ class MapperSubject[T]:
         return wrapper 
 
     @_ensure_no_circular_reference
-    def _do_map[U](self, arg: U, task: RegistryTask) -> T:  
+    def _do_map[U, T](self, arg: U, task: RegistryTask) -> T:  
         kwargs = {
             name: do_exec(arg) for name, do_exec in task.items() 
         }
         
-        return self._target_type(**kwargs)
+        return self._mapping._target_type(**kwargs)
 
-    def map[U](self, arg: U, /, **ctx) -> T:
-        source_type = type(arg) 
-         
-        mapping = (source_type, self.target_type)
+    def map[U, T](self, arg: U, /, **ctx) -> T: 
+        source_type, target_type = self._mapping._source_type, self._mapping._target_type 
+
+        mapping = (source_type, target_type)
         
         profile = self._instance._registry.get(mapping, Fallback.MISSING)
         
         if profile is Fallback.MISSING:
             raise MappingNotFoundError(
-                f"""No mapping found for {source_type.__name__} to {self.target_type.__name__}.
+                f"""No mapping found for {source_type.__name__} to {target_type.__name__}.
                 Please register the mapping to an existing mapper instance.""")
 
         task = self._instance._exec.get(profile, Fallback.MISSING)
         
         if task is Fallback.MISSING:
             raise MappingTaskNotFoundError(
-                f"""No mapping task found for {source_type.__name__} to {self.target_type.__name__}.
+                f"""No mapping task found for {source_type.__name__} to {target_type.__name__}.
                 Something happened internally.""")
         
         return self._do_map(arg, task)
@@ -213,9 +209,9 @@ class Mapper:
             return builder(val) 
 
         return run 
-
-    def __getitem__[T](self, target_type: type[T]) -> MapperSubject[T]:
-        return MapperSubject(target_type, instance=self)   
+    
+    def __getitem__[U, T](self, mapping: Mapping[U, T]) -> MapperSubject[Mapping[U, T]]:
+        return MapperSubject(mapping, instance=self)  
 
 
 class User:
@@ -241,9 +237,7 @@ if __name__ == "__main__":
 
     mapper = Mapper()
     mapper.add(UserMapping())
-    
-    public_user_mapper = mapper[PublicUser]
+     
+    public_user_mapper = mapper[UserMapping]  
 
-    res = public_user_mapper.map(user, x=2, c=comment)
-
-
+    res = public_user_mapper.map(user, ctx={"c": comment, "x": 2})
